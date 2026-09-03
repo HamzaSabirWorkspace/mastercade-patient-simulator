@@ -2,7 +2,10 @@
 // Connects to local FastAPI backend (http://127.0.0.1:8000) or user-provided deployed URL,
 // with rich client-side simulated fallback if backend server is unreachable.
 
-let API_BASE_URL = localStorage.getItem('mastercade_api_url') || 'http://127.0.0.1:8000';
+let API_BASE_URL = localStorage.getItem('mastercade_api_url') || 
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://127.0.0.1:8000' 
+    : (typeof window !== 'undefined' ? window.location.origin : ''));
 
 export const setApiBaseUrl = (url) => {
   API_BASE_URL = url.replace(/\/$/, '');
