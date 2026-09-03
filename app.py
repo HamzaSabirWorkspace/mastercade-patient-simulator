@@ -96,6 +96,7 @@ class StartSessionRequest(BaseModel):
 class AskQuestionRequest(BaseModel):
     session_id: str = Field(..., description="Active session ID")
     question: str = Field(..., description="Doctor's question to the simulated patient")
+    api_key: Optional[str] = Field(None, description="Optional Gemini API Key passed dynamically from front-end")
 
 class SubmitDiagnosisRequest(BaseModel):
     session_id: str = Field(..., description="Active session ID")
@@ -195,7 +196,7 @@ def ask_patient(req: AskQuestionRequest):
         )
 
     start_t = time.time()
-    answer = sim.ask(question)
+    answer = sim.ask(question, api_key=req.api_key)
     elapsed_ms = round((time.time() - start_t) * 1000, 2)
 
     return {

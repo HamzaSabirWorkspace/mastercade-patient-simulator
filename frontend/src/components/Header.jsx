@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Activity, Server, Rocket, RefreshCw, CheckCircle, AlertCircle, Settings } from 'lucide-react';
-import { getApiBaseUrl, setApiBaseUrl } from '../services/api';
+import { Activity, Server, Rocket, RefreshCw, CheckCircle, AlertCircle, Settings, Key } from 'lucide-react';
+import { getApiBaseUrl, setApiBaseUrl, getGeminiKey, setGeminiKey } from '../services/api';
 
 export default function Header({ isOnline, onResetSession, onOpenDeploymentModal, onHealthCheck }) {
   const [showConfig, setShowConfig] = useState(false);
   const [apiUrlInput, setApiUrlInput] = useState(getApiBaseUrl());
+  const [geminiKeyInput, setGeminiKeyInput] = useState(getGeminiKey());
 
-  const handleSaveApiUrl = (e) => {
+  const handleSaveConfig = (e) => {
     e.preventDefault();
     setApiBaseUrl(apiUrlInput);
+    setGeminiKey(geminiKeyInput);
     setShowConfig(false);
     onHealthCheck();
   };
@@ -72,7 +74,7 @@ export default function Header({ isOnline, onResetSession, onOpenDeploymentModal
           {/* Server Connection Status */}
           <div 
             onClick={() => setShowConfig(!showConfig)}
-            title="Click to configure API backend endpoint"
+            title="Click to configure API backend endpoint or Gemini Key"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -114,7 +116,7 @@ export default function Header({ isOnline, onResetSession, onOpenDeploymentModal
         </div>
       </div>
 
-      {/* API Endpoint Config Drawer/Popover */}
+      {/* API Endpoint & Gemini Key Config Drawer/Popover */}
       {showConfig && (
         <div style={{
           maxWidth: '1400px',
@@ -122,40 +124,58 @@ export default function Header({ isOnline, onResetSession, onOpenDeploymentModal
           background: 'rgba(14, 23, 44, 0.95)',
           border: '1px solid rgba(0, 240, 255, 0.3)',
           borderRadius: '12px',
-          padding: '1rem 1.25rem',
+          padding: '1.25rem',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexDirection: 'column',
           gap: '1rem'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Server size={18} color="#00F0FF" />
-            <div>
-              <p style={{ fontSize: '0.85rem', fontWeight: 700 }}>Backend Server URL</p>
-              <p style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
-                Connect your front end to local FastAPI (`http://127.0.0.1:8000`) or deployed production server URL.
-              </p>
+          <form onSubmit={handleSaveConfig} style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <div style={{ flex: 1, minWidth: '240px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: 'white', marginBottom: '0.35rem' }}>
+                <Server size={14} color="#00F0FF" />
+                Backend Server URL:
+              </label>
+              <input 
+                type="text" 
+                value={apiUrlInput}
+                onChange={(e) => setApiUrlInput(e.target.value)}
+                placeholder="http://127.0.0.1:8000"
+                style={{
+                  width: '100%',
+                  background: '#040711',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: 'white',
+                  padding: '0.5rem 0.85rem',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem'
+                }}
+              />
             </div>
-          </div>
-          <form onSubmit={handleSaveApiUrl} style={{ display: 'flex', gap: '0.5rem' }}>
-            <input 
-              type="text" 
-              value={apiUrlInput}
-              onChange={(e) => setApiUrlInput(e.target.value)}
-              placeholder="http://127.0.0.1:8000"
-              style={{
-                background: '#040711',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: 'white',
-                padding: '0.45rem 0.85rem',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                width: '260px'
-              }}
-            />
-            <button type="submit" className="btn-accent" style={{ padding: '0.45rem 1rem', fontSize: '0.82rem' }}>
-              Save & Test
+
+            <div style={{ flex: 1, minWidth: '280px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: 'white', marginBottom: '0.35rem' }}>
+                <Key size={14} color="#34D399" />
+                Gemini API Key (Optional Override):
+              </label>
+              <input 
+                type="password" 
+                value={geminiKeyInput}
+                onChange={(e) => setGeminiKeyInput(e.target.value)}
+                placeholder="AIzaSy... (Paste Gemini Key here)"
+                style={{
+                  width: '100%',
+                  background: '#040711',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: 'white',
+                  padding: '0.5rem 0.85rem',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem'
+                }}
+              />
+            </div>
+
+            <button type="submit" className="btn-accent" style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}>
+              Save & Activate
             </button>
           </form>
         </div>

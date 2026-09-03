@@ -621,10 +621,23 @@ class PatientSimulator:
 
     # -- Q&A ----------------------------------------------------------------
 
-    def ask(self, question: str) -> str:
-        """Return the patient's one-liner answer to `question`."""
+    def ask(self, question: str, api_key: Optional[str] = None) -> str:
+        """Return the patient's natural answer to `question`."""
         if self.patient is None:
             raise RuntimeError("No active patient session. Call start_session() first.")
+
+        # Dynamically initialize or update client if an API key is provided
+        effective_key = (
+            api_key
+            or os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+            or _HARDCODED_GEMINI_API_KEY
+        )
+        if _GEMINI_AVAILABLE and effective_key and (self._client is None or api_key):
+            try:
+                self._client = _genai_sdk.Client(api_key=effective_key)
+            except Exception:
+                pass
 
         if self._client is not None:
             answer = self._ask_llm(question)
@@ -646,12 +659,11 @@ class PatientSimulator:
             Vital signs (only reveal if asked directly): {p.vitals}.
 
             Rules:
-            - Always answer in the FIRST PERSON, as the patient, never as a narrator or doctor.
-            - Every answer must be EXACTLY ONE concise sentence. No lists, no multi-sentence answers.
-            - Stay strictly consistent with the symptoms, history, and medications given above.
-            - Use plain, non-technical language a real patient would use (describe pain and feelings,
-              don't name the diagnosis unless the doctor already told you).
-            - If asked something unrelated to your case, answer briefly and naturally as a patient would.
+            - Always answer in the FIRST PERSON as the patient.
+            - Answer naturally in 1 to 3 realistic sentences. Express your pain, feelings, and concern as a patient speaking to a physician.
+            - Stay strictly consistent with your symptoms ({p.symptoms}) and medical history ({p.history}).
+            - Use plain layperson language. Do not state your medical diagnosis name unless the doctor already diagnosed you.
+            - If asked something unrelated to your case, answer briefly and naturally.
         """).strip()
 
     def _call_gemini_sync(self, question: str):
@@ -660,7 +672,7 @@ class PatientSimulator:
         config = _genai_types.GenerateContentConfig(
             system_instruction=self._system_prompt(),
             temperature=0.7,
-            max_output_tokens=250,
+            max_output_tokens=300,
         )
         
         # Deduplicated list of models to try
@@ -685,15 +697,9 @@ class PatientSimulator:
             raise last_error
 
     def _ask_llm(self, question: str) -> str:
-        # Transient problems (server overload, rate limits, a stalled
-        # socket) are worth retrying a couple of times with a short backoff
-        # before giving up and using the offline responder. Non-transient
-        # errors (bad key, bad model name) fail fast since retrying won't
-        # help. Every attempt is bounded by request_timeout so a stalled
-        # network call can never hang the CLI indefinitely.
         max_attempts = 3
-        base_delay = 1.5   # seconds, doubles each retry
-        request_timeout = 15  # seconds, hard cap per attempt
+        base_delay = 1.5
+        request_timeout = 15
 
         for attempt in range(1, max_attempts + 1):
             reason = None
@@ -702,55 +708,46 @@ class PatientSimulator:
                 future = _LLM_EXECUTOR.submit(self._call_gemini_sync, question)
                 resp = future.result(timeout=request_timeout)
                 text = (resp.text or "").strip()
-                # Safety net: force a single sentence even if the model rambles.
-                return self._first_sentence(text) if text else self._ask_fallback(question)
+                return text if text else self._ask_fallback(question)
             except concurrent.futures.TimeoutError:
                 reason = f"no response after {request_timeout}s"
-                is_transient = True  # worth a retry; might just be a slow/stalled request
+                is_transient = True
             except Exception as exc:
                 reason = str(exc)
                 is_transient = any(code in reason for code in ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED"))
 
             if is_transient and attempt < max_attempts:
-                delay = base_delay * (2 ** (attempt - 1))  # 1.5s, 3s, ...
-                print(f"[info] Gemini busy/slow ({reason}); "
-                      f"retrying in {delay:.1f}s (attempt {attempt}/{max_attempts})...", file=sys.stderr)
+                delay = base_delay * (2 ** (attempt - 1))
                 time.sleep(delay)
                 continue
-            print(f"[warning] Gemini call failed ({reason}); using fallback responder.", file=sys.stderr)
             return self._ask_fallback(question)
-
-    @staticmethod
-    def _first_sentence(text: str) -> str:
-        for terminator in (". ", "! ", "? "):
-            if terminator in text:
-                return text.split(terminator)[0].strip() + terminator.strip()
-        return text.strip()
 
     # -- offline fallback responder ---------------------------------------
 
     def _ask_fallback(self, question: str) -> str:
-        """Very small keyword-matching responder used when no LLM is configured."""
         p = self.patient
         q = question.lower()
 
-        if any(w in q for w in ["how are you", "how do you feel", "feeling"]):
-            return f"Honestly, not great — I've had {p.symptoms.lower()}."
-        if any(w in q for w in ["pain", "hurt", "ache"]):
-            return f"Yes, it's been {p.symptoms.split(',')[0].lower()}."
-        if any(w in q for w in ["history", "before", "past", "previous"]):
-            return f"I do have a history of {p.history.lower()}."
-        if any(w in q for w in ["medication", "medicine", "drugs", "taking"]):
-            return f"I'm currently taking {p.medications.lower()}."
+        if any(w in q for w in ["how are you", "how do you feel", "feeling", "what brings"]):
+            return f"Honestly doctor, I'm feeling quite unwell. I've been experiencing severe {p.symptoms.lower()}, and it's making me really concerned."
+        if any(w in q for w in ["pain", "hurt", "ache", "discomfort", "symptom"]):
+            return f"Yes doctor, it started recently as a very uncomfortable {p.symptoms.split(',')[0].lower()}. It gets worse when I move around."
+        if any(w in q for w in ["history", "before", "past", "previous", "prior"]):
+            return f"Well, in my medical past I've dealt with {p.history.lower()}. Otherwise I try to take care of myself."
+        if any(w in q for w in ["medication", "medicine", "drug", "pill", "taking"]):
+            return f"I am currently taking {p.medications.lower()} as prescribed by my doctor."
         if any(w in q for w in ["age", "old"]):
             return f"I'm {p.age} years old."
-        if any(w in q for w in ["smoke", "smoking", "alcohol", "drink"]):
-            return f"Well, {p.history.lower()}."
-        if any(w in q for w in ["vitals", "blood pressure", "heart rate", "temperature", "oxygen"]):
+        if any(w in q for w in ["smoke", "smoking", "alcohol", "drink", "lifestyle"]):
+            return f"Regarding my habits, {p.history.lower()}."
+        if any(w in q for w in ["vital", "blood pressure", "heart rate", "temperature", "oxygen"]):
             v = p.vitals
-            return f"Last I was told, my blood pressure was {v['BP']} and heart rate was {v['HR']}."
+            return f"My latest vital check showed blood pressure of {v['BP']}, heart rate of {v['HR']} BPM, temperature of {v['Temp']}, and oxygen at {v['SpO2']}."
         if any(w in q for w in ["name", "who are you"]):
-            return f"My name is {p.name}."
+            return f"My name is {p.name}, doctor."
+        if any(w in q for w in ["when", "start", "long", "onset", "time"]):
+            return "It started a couple of days ago very suddenly, and it's been progressively getting worse since yesterday."
+        return f"Mainly it's the {p.symptoms.split(',')[0].lower()} that's bothering me the most right now, doctor."
         if "when" in q and "start" in q:
             return "It started a couple of days ago and has been getting worse since."
         # generic catch-all, still grounded in the case

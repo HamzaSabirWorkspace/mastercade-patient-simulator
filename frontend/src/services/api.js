@@ -14,6 +14,12 @@ export const setApiBaseUrl = (url) => {
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
+export const setGeminiKey = (key) => {
+  localStorage.setItem('mastercade_gemini_key', key.trim());
+};
+
+export const getGeminiKey = () => localStorage.getItem('mastercade_gemini_key') || '';
+
 // Helper to handle API call with timeout
 async function fetchWithTimeout(resource, options = {}) {
   const { timeout = 8000 } = options;
@@ -124,10 +130,15 @@ export const api = {
   // Ask Question to Patient
   async askQuestion(sessionId, question) {
     try {
+      const apiKey = getGeminiKey();
       const res = await fetchWithTimeout(`${API_BASE_URL}/api/session/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, question }),
+        body: JSON.stringify({
+          session_id: sessionId,
+          question,
+          api_key: apiKey || undefined
+        }),
         timeout: 16000
       });
       if (res.ok) {
