@@ -64,9 +64,7 @@ try:
 except ImportError:
     _GEMINI_AVAILABLE = False
 
-# Default Gemini model. Override with the GEMINI_MODEL env var if Google
-# renames/retires this model — Google's model lineup changes fairly often.
-_DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
+_DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
 # --------------------------------------------------------------------------
 # API key.
@@ -663,16 +661,28 @@ class PatientSimulator:
             system_instruction=self._system_prompt(),
             temperature=0.7,
             max_output_tokens=250,
-            # Gemini 3 models "think" before answering by default, which can
-            # consume the whole output-token budget and leave nothing for
-            # the actual answer. We only need a one-liner, so keep it low.
-            thinking_config=_genai_types.ThinkingConfig(thinking_level="low"),
         )
-        return self._client.models.generate_content(
-            model=self._model_name,
-            contents=question,
-            config=config,
-        )
+        
+        # Deduplicated list of models to try
+        candidate_models = []
+        for m in [self._model_name, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+            if m and m not in candidate_models:
+                candidate_models.append(m)
+
+        last_error = None
+        for m in candidate_models:
+            try:
+                return self._client.models.generate_content(
+                    model=m,
+                    contents=question,
+                    config=config,
+                )
+            except Exception as e:
+                last_error = e
+                continue
+
+        if last_error:
+            raise last_error
 
     def _ask_llm(self, question: str) -> str:
         # Transient problems (server overload, rate limits, a stalled

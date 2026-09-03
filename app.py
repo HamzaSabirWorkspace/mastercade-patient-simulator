@@ -127,7 +127,7 @@ def health_check():
         "active_sessions": len(sessions),
         "llm_available": _GEMINI_AVAILABLE and api_key_present,
         "faker_available": _FAKER_AVAILABLE,
-        "model": os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+        "model": os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
     }
 
 @app.get("/api/wards")
