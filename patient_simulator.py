@@ -64,15 +64,10 @@ try:
 except ImportError:
     _GEMINI_AVAILABLE = False
 
-_DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+_DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 # --------------------------------------------------------------------------
-# API key.
-# Preferred: set the GEMINI_API_KEY environment variable instead of editing
-# this file, especially before sharing/committing this script anywhere —
-# anyone who has this file also has whatever key is hardcoded below.
-# This hardcoded value is only used as a fallback if no environment
-# variable is set.
+# API Key Default Fallback
 # --------------------------------------------------------------------------
 _HARDCODED_GEMINI_API_KEY = ""
 
@@ -677,7 +672,7 @@ class PatientSimulator:
         
         # Deduplicated list of models to try
         candidate_models = []
-        for m in [self._model_name, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+        for m in [self._model_name, "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.6-flash"]:
             if m and m not in candidate_models:
                 candidate_models.append(m)
 
