@@ -71,39 +71,6 @@ export default function Header({ isOnline, onResetSession, onOpenDeploymentModal
 
         {/* Action Controls & Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* Server Connection Status */}
-          <div 
-            onClick={() => setShowConfig(!showConfig)}
-            title="Click to configure API backend endpoint or Gemini Key"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              background: isOnline ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-              border: `1px solid ${isOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-              padding: '0.45rem 0.85rem',
-              borderRadius: '20px',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              color: isOnline ? '#34D399' : '#FBBF24'
-            }}
-          >
-            {isOnline ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-            <span>{isOnline ? 'API Server Live' : 'Standalone Mode'}</span>
-            <Settings size={13} style={{ opacity: 0.7 }} />
-          </div>
-
-          {/* Deployment Guide Trigger */}
-          <button 
-            className="btn-primary" 
-            onClick={onOpenDeploymentModal}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-          >
-            <Rocket size={16} />
-            <span>Free Server Deployment</span>
-          </button>
-
           {/* New Case Button */}
           <button 
             className="btn-secondary" 
